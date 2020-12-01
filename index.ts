@@ -1,1 +1,1 @@
-module.exports = require('./ts');
+export * from './ts';
