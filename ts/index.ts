@@ -1,385 +1,344 @@
-import * as snarkjs from 'snarkjs'
-import * as circomlib from 'circomlib'
-import * as crypto from 'crypto'
-import * as ethers from 'ethers'
-import { convertWitness, prove, beBuff2int } from './utils' 
-import { storage, hashers, tree } from 'semaphore-merkle-tree'
+import * as snarkjs from "snarkjs";
+import * as circomlib from "circomlib";
+import * as crypto from "crypto";
+import * as ethers from "ethers";
+import { convertWitness, prove, beBuff2int } from "./utils";
+import { storage, hashers, tree } from "semaphore-merkle-tree";
 import {
-    Identity,
-    EddsaKeyPair,
-    EddsaPrivateKey,
-    EddsaPublicKey,
-    EdDSASignature,
-    SnarkCircuit,
-    SnarkProvingKey,
-    SnarkVerifyingKey ,
-    SnarkWitness,
-    SnarkPublicSignals,
-    SnarkProof,
-    SnarkBigInt,
-    WitnessData,
-    BroadcastSignalParams,
-} from '../@types';
+  Identity,
+  EddsaKeyPair,
+  EddsaPrivateKey,
+  EddsaPublicKey,
+  EdDSASignature,
+  SnarkCircuit,
+  SnarkProvingKey,
+  SnarkVerifyingKey,
+  SnarkWitness,
+  SnarkPublicSignals,
+  SnarkProof,
+  SnarkBigInt,
+  WitnessData,
+  BroadcastSignalParams,
+} from "../@types";
 
-const MemStorage = storage.MemStorage
-const MerkleTree = tree.MerkleTree
-const MimcSpongeHasher = hashers.MimcSpongeHasher
-const stringifyBigInts: (obj: object) => object = snarkjs.stringifyBigInts
-const unstringifyBigInts: (obj: object) => object = snarkjs.unstringifyBigInts
+const MemStorage = storage.MemStorage;
+const MerkleTree = tree.MerkleTree;
+const MimcSpongeHasher = hashers.MimcSpongeHasher;
+const stringifyBigInts: (obj: any) => any = snarkjs.stringifyBigInts;
+const unstringifyBigInts: (obj: any) => any = snarkjs.unstringifyBigInts;
 
-const pedersenHash = (
-    ints: SnarkBigInt[],
-): SnarkBigInt => {
-
-    const p = circomlib.babyJub.unpackPoint(
-        circomlib.pedersenHash.hash(
-            Buffer.concat(
-                ints.map(x => x.leInt2Buff(32))
-            )
-        )
+const pedersenHash = (ints: SnarkBigInt[]): SnarkBigInt => {
+  const p = circomlib.babyJub.unpackPoint(
+    circomlib.pedersenHash.hash(
+      Buffer.concat(ints.map((x) => x.leInt2Buff(32)))
     )
+  );
 
-    return snarkjs.bigInt(p[0])
-}
+  return snarkjs.bigInt(p[0]);
+};
 
-const genRandomBuffer = (numBytes: number = 32): Buffer => {
-    return crypto.randomBytes(numBytes)
-}
+const genRandomBuffer = (numBytes = 32): Buffer => {
+  return crypto.randomBytes(numBytes);
+};
 
 const genPubKey = (privKey: EddsaPrivateKey): EddsaPublicKey => {
-    const pubKey = circomlib.eddsa.prv2pub(privKey)
+  const pubKey = circomlib.eddsa.prv2pub(privKey);
 
-    return pubKey
-}
+  return pubKey;
+};
 
-const genEddsaKeyPair = (
-    privKey: Buffer = genRandomBuffer(),
-): EddsaKeyPair => {
+const genEddsaKeyPair = (privKey: Buffer = genRandomBuffer()): EddsaKeyPair => {
+  const pubKey = genPubKey(privKey);
+  return { pubKey, privKey };
+};
 
-    const pubKey = genPubKey(privKey)
-    return { pubKey, privKey }
-}
+const genIdentity = (privKey: Buffer = genRandomBuffer(32)): Identity => {
+  // The identity nullifier and identity trapdoor are separate random 31-byte
+  // values
+  return {
+    keypair: genEddsaKeyPair(privKey),
+    identityNullifier: snarkjs.bigInt.leBuff2int(genRandomBuffer(31)),
+    identityTrapdoor: snarkjs.bigInt.leBuff2int(genRandomBuffer(31)),
+  };
+};
 
-const genIdentity = (
-    privKey: Buffer = genRandomBuffer(32),
-): Identity => {
+const serializeIdentity = (identity: Identity): string => {
+  const data = [
+    identity.keypair.privKey.toString("hex"),
+    identity.identityNullifier.toString(16),
+    identity.identityTrapdoor.toString(16),
+  ];
+  return JSON.stringify(data);
+};
 
-    // The identity nullifier and identity trapdoor are separate random 31-byte
-    // values
-    return {
-        keypair: genEddsaKeyPair(privKey),
-        identityNullifier: snarkjs.bigInt.leBuff2int(genRandomBuffer(31)),
-        identityTrapdoor: snarkjs.bigInt.leBuff2int(genRandomBuffer(31)),
-    }
-}
+const unSerializeIdentity = (serialisedIdentity: string): Identity => {
+  const data = JSON.parse(serialisedIdentity);
+  return {
+    keypair: genEddsaKeyPair(Buffer.from(data[0], "hex")),
+    identityNullifier: snarkjs.bigInt("0x" + data[1]),
+    identityTrapdoor: snarkjs.bigInt("0x" + data[2]),
+  };
+};
 
-const serializeIdentity = (
-    identity: Identity,
-): string => {
-    const data = [
-        identity.keypair.privKey.toString('hex'),
-        identity.identityNullifier.toString(16),
-        identity.identityTrapdoor.toString(16),
-    ]
-    return JSON.stringify(data)
-}
+const serialiseIdentity = serializeIdentity;
+const unSerialiseIdentity = unSerializeIdentity;
 
-const unSerializeIdentity = (
-    serialisedIdentity: string,
-): Identity => {
-    const data = JSON.parse(serialisedIdentity)
-    return {
-        keypair: genEddsaKeyPair(Buffer.from(data[0], 'hex')),
-        identityNullifier: snarkjs.bigInt('0x' + data[1]),
-        identityTrapdoor: snarkjs.bigInt('0x' + data[2]),
-    }
-}
-
-const serialiseIdentity = serializeIdentity
-const unSerialiseIdentity = unSerializeIdentity
-
-const genIdentityCommitment = (
-    identity: Identity,
-): SnarkBigInt => {
-
-    return pedersenHash([
-        circomlib.babyJub.mulPointEscalar(identity.keypair.pubKey, 8)[0],
-        identity.identityNullifier,
-        identity.identityTrapdoor,
-    ])
-}
+const genIdentityCommitment = (identity: Identity): SnarkBigInt => {
+  return pedersenHash([
+    circomlib.babyJub.mulPointEscalar(identity.keypair.pubKey, 8)[0],
+    identity.identityNullifier,
+    identity.identityTrapdoor,
+  ]);
+};
 
 const signMsg = (
-    privKey: EddsaPrivateKey,
-    msg: SnarkBigInt,
+  privKey: EddsaPrivateKey,
+  msg: SnarkBigInt
 ): EdDSASignature => {
-
-    return circomlib.eddsa.signMiMCSponge(privKey, msg)
-}
+  return circomlib.eddsa.signMiMCSponge(privKey, msg);
+};
 
 const genSignedMsg = (
-    privKey: EddsaPrivateKey,
-    externalNullifier: SnarkBigInt,
-    signalHash: SnarkBigInt,
+  privKey: EddsaPrivateKey,
+  externalNullifier: SnarkBigInt,
+  signalHash: SnarkBigInt
 ) => {
-    const msg = circomlib.mimcsponge.multiHash([
-        externalNullifier,
-        signalHash,
-    ])
+  const msg = circomlib.mimcsponge.multiHash([externalNullifier, signalHash]);
 
-    return {
-        msg,
-        signature: signMsg(privKey, msg),
-    }
-}
+  return {
+    msg,
+    signature: signMsg(privKey, msg),
+  };
+};
 
 const genPathElementsAndIndex = async (tree, identityCommitment) => {
-    const leafIndex = await tree.element_index(identityCommitment)
-    const identityPath = await tree.path(leafIndex)
-    const identityPathElements = identityPath.path_elements
-    const identityPathIndex = identityPath.path_index
+  const leafIndex = await tree.element_index(identityCommitment);
+  const identityPath = await tree.path(leafIndex);
+  const identityPathElements = identityPath.path_elements;
+  const identityPathIndex = identityPath.path_index;
 
-    return { identityPathElements, identityPathIndex }
-}
+  return { identityPathElements, identityPathIndex };
+};
 
 const verifySignature = (
-    msg: SnarkBigInt,
-    signature: EdDSASignature,
-    pubKey: EddsaPublicKey,
+  msg: SnarkBigInt,
+  signature: EdDSASignature,
+  pubKey: EddsaPublicKey
 ): boolean => {
+  return circomlib.eddsa.verifyMiMCSponge(msg, signature, pubKey);
+};
 
-    return circomlib.eddsa.verifyMiMCSponge(msg, signature, pubKey)
-}
+const genTree = async (treeDepth: number, leaves: SnarkBigInt[]) => {
+  const tree = setupTree(treeDepth);
 
-const genTree = async (
-    treeDepth: number,
-    leaves: SnarkBigInt[],
-) => {
+  for (let i = 0; i < leaves.length; i++) {
+    await tree.update(i, leaves[i].toString());
+  }
 
-    const tree = setupTree(treeDepth)
-
-    for (let i=0; i<leaves.length; i++) {
-        await tree.update(i, leaves[i].toString())
-    }
-
-    return tree
-}
+  return tree;
+};
 const genMixerSignal = (
-    recipientAddress: string,
-    forwarderAddress: string,
-    feeAmt: Number | snarkjs.utils.BigNumber,
+  recipientAddress: string,
+  forwarderAddress: string,
+  feeAmt: number | snarkjs.utils.BigNumber
 ): string => {
-    return ethers.utils.solidityKeccak256(
-        ['address', 'address', 'uint256'],
-        [recipientAddress, forwarderAddress, feeAmt.toString()],
-    )
-}
+  return ethers.utils.solidityKeccak256(
+    ["address", "address", "uint256"],
+    [recipientAddress, forwarderAddress, feeAmt.toString()]
+  );
+};
 
-const keccak256HexToBigInt = (
-    signal: string,
-): SnarkBigInt => {
-    const signalAsBuffer = Buffer.from(signal.slice(2), 'hex')
-    const signalHashRaw = ethers.utils.solidityKeccak256(
-        ['bytes'],
-        [signalAsBuffer],
-    )
-    const signalHashRawAsBytes = Buffer.from(signalHashRaw.slice(2), 'hex');
-    const signalHash: SnarkBigInt = beBuff2int(signalHashRawAsBytes.slice(0, 31))
+const keccak256HexToBigInt = (signal: string): SnarkBigInt => {
+  const signalAsBuffer = Buffer.from(signal.slice(2), "hex");
+  const signalHashRaw = ethers.utils.solidityKeccak256(
+    ["bytes"],
+    [signalAsBuffer]
+  );
+  const signalHashRawAsBytes = Buffer.from(signalHashRaw.slice(2), "hex");
+  const signalHash: SnarkBigInt = beBuff2int(signalHashRawAsBytes.slice(0, 31));
 
-    return signalHash
-}
+  return signalHash;
+};
 
-const genSignalHash = (x) => keccak256HexToBigInt(ethers.utils.hexlify(x))
+const genSignalHash = (x) => keccak256HexToBigInt(ethers.utils.hexlify(x));
 
 const genCircuit = (circuitDefinition: any) => {
-    return new snarkjs.Circuit(circuitDefinition)
-}
+  return new snarkjs.Circuit(circuitDefinition);
+};
 
 const genWitness = (
-    signal: string,
-    circuit: SnarkCircuit,
-    identity: Identity,
-    idCommitments: SnarkBigInt[] | BigInt[] | ethers.utils.BigNumber[],
-    treeDepth: number,
-    externalNullifier: SnarkBigInt,
+  signal: string,
+  circuit: SnarkCircuit,
+  identity: Identity,
+  idCommitments: SnarkBigInt[] | BigInt[] | ethers.utils.BigNumber[],
+  treeDepth: number,
+  externalNullifier: SnarkBigInt
 ): Promise<WitnessData> => {
-
-    return _genWitness(
-        signal,
-        circuit,
-        identity,
-        idCommitments,
-        treeDepth,
-        externalNullifier,
-        (signal: string) => {
-            return ethers.utils.hexlify(
-                ethers.utils.toUtf8Bytes(signal),
-            )
-        },
-    )
-}
+  return _genWitness(
+    signal,
+    circuit,
+    identity,
+    idCommitments,
+    treeDepth,
+    externalNullifier,
+    (signal: string) => {
+      return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(signal));
+    }
+  );
+};
 
 const genMixerWitness = (
-    circuit: SnarkCircuit,
-    identity: Identity,
-    idCommitments: SnarkBigInt[],
-    treeDepth: number,
-    recipientAddress: string,
-    forwarderAddress: string,
-    feeAmt: Number | number | SnarkBigInt,
-    externalNullifier: SnarkBigInt,
+  circuit: SnarkCircuit,
+  identity: Identity,
+  idCommitments: SnarkBigInt[],
+  treeDepth: number,
+  recipientAddress: string,
+  forwarderAddress: string,
+  feeAmt: number | number | SnarkBigInt,
+  externalNullifier: SnarkBigInt
 ): Promise<WitnessData> => {
+  const signal = genMixerSignal(recipientAddress, forwarderAddress, feeAmt);
 
-    const signal = genMixerSignal(
-        recipientAddress, forwarderAddress, feeAmt,
-    )
-
-    return _genWitness(
-        signal,
-        circuit,
-        identity,
-        idCommitments,
-        treeDepth,
-        externalNullifier,
-        (x) => x,
-    )
-}
+  return _genWitness(
+    signal,
+    circuit,
+    identity,
+    idCommitments,
+    treeDepth,
+    externalNullifier,
+    (x) => x
+  );
+};
 
 const _genWitness = async (
-    signal: string,
-    circuit: SnarkCircuit,
-    identity: Identity,
-    idCommitments: SnarkBigInt[] | BigInt[] | ethers.utils.BigNumber[],
-    treeDepth: number,
-    externalNullifier: SnarkBigInt,
-    transformSignalToHex: (x: string) => string,
+  signal: string,
+  circuit: SnarkCircuit,
+  identity: Identity,
+  idCommitments: SnarkBigInt[] | BigInt[] | ethers.utils.BigNumber[],
+  treeDepth: number,
+  externalNullifier: SnarkBigInt,
+  transformSignalToHex: (x: string) => string
 ): Promise<WitnessData> => {
+  // convert idCommitments
+  const idCommitmentsAsBigInts: SnarkBigInt[] = [];
+  for (const idc of idCommitments) {
+    idCommitmentsAsBigInts.push(snarkjs.bigInt(idc.toString()));
+  }
 
-    // convert idCommitments
-    const idCommitmentsAsBigInts: SnarkBigInt[] = []
-    for (let idc of idCommitments) {
-        idCommitmentsAsBigInts.push(snarkjs.bigInt(idc.toString()))
-    }
+  const identityCommitment = genIdentityCommitment(identity);
+  const index = idCommitmentsAsBigInts.indexOf(identityCommitment);
+  const tree = await genTree(treeDepth, idCommitments);
 
-    const identityCommitment = genIdentityCommitment(identity)
-    const index = idCommitmentsAsBigInts.indexOf(identityCommitment)
-    const tree = await genTree(treeDepth, idCommitments)
+  const identityPath = await tree.path(index);
 
-    const identityPath = await tree.path(index)
+  const {
+    identityPathElements,
+    identityPathIndex,
+  } = await genPathElementsAndIndex(tree, identityCommitment);
 
-    const { identityPathElements, identityPathIndex } = await genPathElementsAndIndex(
-        tree,
-        identityCommitment,
+  const signalHash = keccak256HexToBigInt(transformSignalToHex(signal));
+
+  const { signature, msg } = genSignedMsg(
+    identity.keypair.privKey,
+    externalNullifier,
+    signalHash
+  );
+
+  const witness = circuit.calculateWitness({
+    "identity_pk[0]": identity.keypair.pubKey[0],
+    "identity_pk[1]": identity.keypair.pubKey[1],
+    "auth_sig_r[0]": signature.R8[0],
+    "auth_sig_r[1]": signature.R8[1],
+    auth_sig_s: signature.S,
+    signal_hash: signalHash,
+    external_nullifier: externalNullifier,
+    identity_nullifier: identity.identityNullifier,
+    identity_trapdoor: identity.identityTrapdoor,
+    identity_path_elements: identityPathElements,
+    identity_path_index: identityPathIndex,
+    fake_zero: snarkjs.bigInt(0),
+  });
+
+  return {
+    witness,
+    signal,
+    signalHash,
+    signature,
+    msg,
+    tree,
+    identityPath,
+    identityPathIndex,
+    identityPathElements,
+  };
+};
+
+const setupTree = (levels: number, prefix = "semaphore"): tree.MerkleTree => {
+  const storage = new MemStorage();
+  const hasher = new MimcSpongeHasher();
+
+  return new MerkleTree(
+    prefix,
+    storage,
+    hasher,
+    levels,
+    ethers.utils.solidityKeccak256(
+      ["bytes"],
+      [ethers.utils.toUtf8Bytes("Semaphore")]
     )
-
-    const signalHash = keccak256HexToBigInt(transformSignalToHex(signal))
-
-    const { signature, msg } = genSignedMsg(
-        identity.keypair.privKey,
-        externalNullifier,
-        signalHash, 
-    )
-   
-    const witness = circuit.calculateWitness({
-        'identity_pk[0]': identity.keypair.pubKey[0],
-        'identity_pk[1]': identity.keypair.pubKey[1],
-        'auth_sig_r[0]': signature.R8[0],
-        'auth_sig_r[1]': signature.R8[1],
-        auth_sig_s: signature.S,
-        signal_hash: signalHash,
-        external_nullifier: externalNullifier,
-        identity_nullifier: identity.identityNullifier,
-        identity_trapdoor: identity.identityTrapdoor,
-        identity_path_elements: identityPathElements,
-        identity_path_index: identityPathIndex,
-        fake_zero: snarkjs.bigInt(0),
-    })
-
-    return {
-        witness,
-        signal,
-        signalHash,
-        signature,
-        msg,
-        tree,
-        identityPath,
-        identityPathIndex,
-        identityPathElements,
-    }
-}
-
-const setupTree = (
-    levels: number,
-    prefix: string = 'semaphore',
-): tree.MerkleTree => {
-    const storage = new MemStorage()
-    const hasher = new MimcSpongeHasher()
-
-    return new MerkleTree(
-        prefix,
-        storage,
-        hasher,
-        levels,
-        ethers.utils.solidityKeccak256(['bytes'], [ethers.utils.toUtf8Bytes('Semaphore')]),
-    )
-}
+  );
+};
 
 const genProof = async (
-    witness: any,
-    provingKey: SnarkProvingKey,
+  witness: any,
+  provingKey: SnarkProvingKey
 ): Promise<SnarkProof> => {
+  const witnessBin = convertWitness(snarkjs.stringifyBigInts(witness));
 
-    const witnessBin = convertWitness(snarkjs.stringifyBigInts(witness))
-
-    return await prove(witnessBin.buffer, provingKey.buffer)
-}
+  return await prove(witnessBin.buffer, provingKey.buffer);
+};
 
 const genPublicSignals = (
-    witness: any,
-    circuit: snarkjs.Circuit,
+  witness: any,
+  circuit: snarkjs.Circuit
 ): SnarkPublicSignals => {
+  return witness.slice(1, circuit.nPubInputs + circuit.nOutputs + 1);
+};
 
-    return witness.slice(1, circuit.nPubInputs + circuit.nOutputs+1)
-}
-
-const parseVerifyingKeyJson = (
-    verifyingKeyStr: string,
-) => {
-    return snarkjs.unstringifyBigInts(JSON.parse(verifyingKeyStr))
-}
+const parseVerifyingKeyJson = (verifyingKeyStr: string) => {
+  return snarkjs.unstringifyBigInts(JSON.parse(verifyingKeyStr));
+};
 
 const verifyProof = (
-    verifyingKey: SnarkVerifyingKey,
-    proof: SnarkProof,
-    publicSignals: SnarkPublicSignals
+  verifyingKey: SnarkVerifyingKey,
+  proof: SnarkProof,
+  publicSignals: SnarkPublicSignals
 ): boolean => {
-
-    return snarkjs.groth.isValid(verifyingKey, proof, publicSignals)
-}
+  return snarkjs.groth.isValid(verifyingKey, proof, publicSignals);
+};
 
 const formatForVerifierContract = (
-    proof: SnarkProof,
-    publicSignals: SnarkPublicSignals,
+  proof: SnarkProof,
+  publicSignals: SnarkPublicSignals
 ) => {
-    const stringify = (x) => x.toString()
+  const stringify = (x) => x.toString();
 
-    return {
-        a: [ proof.pi_a[0].toString(), proof.pi_a[1].toString() ],
-        b: [ 
-            [ proof.pi_b[0][1].toString(), proof.pi_b[0][0].toString() ],
-            [ proof.pi_b[1][1].toString(), proof.pi_b[1][0].toString() ],
-        ],
-        c: [ proof.pi_c[0].toString(), proof.pi_c[1].toString() ],
-        input: publicSignals.map(stringify),
-    }
-}
+  return {
+    a: [proof.pi_a[0].toString(), proof.pi_a[1].toString()],
+    b: [
+      [proof.pi_b[0][1].toString(), proof.pi_b[0][0].toString()],
+      [proof.pi_b[1][1].toString(), proof.pi_b[1][0].toString()],
+    ],
+    c: [proof.pi_c[0].toString(), proof.pi_c[1].toString()],
+    input: publicSignals.map(stringify),
+  };
+};
 
 const cutOrExpandHexToBytes = (hexStr: string, bytes: number): string => {
-    const len = bytes * 2
+  const len = bytes * 2;
 
-    const h = hexStr.slice(2, len + 2)
-    return '0x' + h.padStart(len, '0')
-}
+  const h = hexStr.slice(2, len + 2);
+  return "0x" + h.padStart(len, "0");
+};
 
 /*
  * Each external nullifier must be at most 29 bytes large. This function
@@ -389,72 +348,69 @@ const cutOrExpandHexToBytes = (hexStr: string, bytes: number): string => {
  * @return plaintext The 0-padded 29-byte external nullifier
  */
 const genExternalNullifier = (plaintext: string): string => {
-    const hashed = ethers.utils.solidityKeccak256(['string'], [plaintext])
-    return cutOrExpandHexToBytes(
-        '0x' + hashed.slice(8),
-        32,
-    )
-}
+  const hashed = ethers.utils.solidityKeccak256(["string"], [plaintext]);
+  return cutOrExpandHexToBytes("0x" + hashed.slice(8), 32);
+};
 
 const genBroadcastSignalParams = (
-    witnessData: WitnessData,
-    proof: SnarkProof,
-    publicSignals: SnarkPublicSignals,
+  witnessData: WitnessData,
+  proof: SnarkProof,
+  publicSignals: SnarkPublicSignals
 ): BroadcastSignalParams => {
-    const formatted = formatForVerifierContract(proof, publicSignals)
+  const formatted = formatForVerifierContract(proof, publicSignals);
 
-    return {
-        signal: ethers.utils.toUtf8Bytes(witnessData.signal),
-        proof: [
-            ...formatted.a,
-            ...formatted.b[0],
-            ...formatted.b[1],
-            ...formatted.c,
-        ],
-        root: formatted.input[0],
-        nullifiersHash: formatted.input[1],
-        // The signal hash (formatted.input[2]) isn't passed to broadcastSignal
-        // as the contract will generate (and then verify) it
-        externalNullifier: formatted.input[3],
-    }
-}
+  return {
+    signal: ethers.utils.toUtf8Bytes(witnessData.signal),
+    proof: [
+      ...formatted.a,
+      ...formatted.b[0],
+      ...formatted.b[1],
+      ...formatted.c,
+    ],
+    root: formatted.input[0],
+    nullifiersHash: formatted.input[1],
+    // The signal hash (formatted.input[2]) isn't passed to broadcastSignal
+    // as the contract will generate (and then verify) it
+    externalNullifier: formatted.input[3],
+  };
+};
 
 export {
-    Identity,
-    EddsaKeyPair,
-    EddsaPrivateKey,
-    EddsaPublicKey,
-    SnarkCircuit,
-    SnarkProvingKey,
-    SnarkVerifyingKey ,
-    SnarkWitness,
-    SnarkPublicSignals,
-    SnarkProof,
-    SnarkBigInt,
-    WitnessData,
-    BroadcastSignalParams,
-    parseVerifyingKeyJson,
-    setupTree,
-    genPubKey,
-    genIdentity,
-    genWitness,
-    genMixerSignal,
-    genMixerWitness,
-    genProof,
-    genPublicSignals,
-    genSignedMsg,
-    genCircuit,
-    genTree,
-    verifyProof,
-    verifySignature,
-    signMsg,
-    genIdentityCommitment,
-    formatForVerifierContract,
-    stringifyBigInts,
-    unstringifyBigInts,
-    serialiseIdentity,
-    unSerialiseIdentity,
-    genExternalNullifier,
-    genBroadcastSignalParams,
-    genSignalHash,
-}
+  Identity,
+  EddsaKeyPair,
+  EddsaPrivateKey,
+  EddsaPublicKey,
+  SnarkCircuit,
+  SnarkProvingKey,
+  SnarkVerifyingKey,
+  SnarkWitness,
+  SnarkPublicSignals,
+  SnarkProof,
+  SnarkBigInt,
+  WitnessData,
+  BroadcastSignalParams,
+  parseVerifyingKeyJson,
+  setupTree,
+  genPubKey,
+  genIdentity,
+  genWitness,
+  genMixerSignal,
+  genMixerWitness,
+  genProof,
+  genPublicSignals,
+  genSignedMsg,
+  genCircuit,
+  genTree,
+  verifyProof,
+  verifySignature,
+  signMsg,
+  genIdentityCommitment,
+  formatForVerifierContract,
+  stringifyBigInts,
+  unstringifyBigInts,
+  serialiseIdentity,
+  unSerialiseIdentity,
+  genExternalNullifier,
+  genBroadcastSignalParams,
+  genSignalHash,
+};

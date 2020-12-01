@@ -8,7 +8,8 @@
     "build": "tsc",
     "prepare": "npm run build",
     "test": "./scripts/downloadSnarks.sh && jest --force-exit",
-    "test-debug": "./scripts/downloadSnarks.sh && NODE_ENV=local-dev node --inspect-brk ./node_modules/.bin/jest --testPathPattern=__tests__/"
+    "test-debug": "./scripts/downloadSnarks.sh && NODE_ENV=local-dev node --inspect-brk ./node_modules/.bin/jest --testPathPattern=__tests__/",
+    "lint": "eslint './ts/*.{ts,tsx}'"
   },
   "repository": {
     "type": "git",
@@ -23,8 +24,13 @@
   "typings": "./index.d.ts",
   "devDependencies": {
     "@types/jest": "^24.9.1",
+    "@typescript-eslint/eslint-plugin": "^4.6.0",
+    "@typescript-eslint/parser": "^4.8.2",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
+    "eslint": "^7.12.1",
+    "eslint-config-prettier": "^6.15.0",
+    "eslint-plugin-prettier": "^3.1.4",
     "jest": "^24.8.0",
     "ts-jest": "^24.3.0",
     "typescript": "^3.7.5"

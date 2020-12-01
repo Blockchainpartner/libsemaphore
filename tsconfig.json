@@ -15,8 +15,6 @@
         "sourceMap": true,
         "strict": true,
         "outDir": "./build",
-        "lib": [ "es6" ],
-        "baseUrl": "."
     },
     "exclude": [
         "node_modules/**"
