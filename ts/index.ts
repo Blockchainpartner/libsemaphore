@@ -1,9 +1,12 @@
+// @ts-ignore
 import * as snarkjs from "snarkjs";
+// @ts-ignore
 import * as circomlib from "circomlib";
+// @ts-ignore
+import { storage, hashers, tree } from "semaphore-merkle-tree";
 import * as crypto from "crypto";
 import * as ethers from "ethers";
 import { convertWitness, prove, beBuff2int } from "./utils";
-import { storage, hashers, tree } from "semaphore-merkle-tree";
 import {
   Identity,
   EddsaKeyPair,
@@ -111,7 +114,7 @@ const genSignedMsg = (
   };
 };
 
-const genPathElementsAndIndex = async (tree, identityCommitment) => {
+const genPathElementsAndIndex = async (tree: any, identityCommitment: BigInt) => {
   const leafIndex = await tree.element_index(identityCommitment);
   const identityPath = await tree.path(leafIndex);
   const identityPathElements = identityPath.path_elements;
@@ -160,7 +163,7 @@ const keccak256HexToBigInt = (signal: string): SnarkBigInt => {
   return signalHash;
 };
 
-const genSignalHash = (x) => keccak256HexToBigInt(ethers.utils.hexlify(x));
+const genSignalHash = (x: string | number | ArrayLike<number> | ethers.ethers.utils.Hexable) => keccak256HexToBigInt(ethers.utils.hexlify(x));
 
 const genCircuit = (circuitDefinition: any) => {
   return new snarkjs.Circuit(circuitDefinition);
@@ -320,7 +323,7 @@ const formatForVerifierContract = (
   proof: SnarkProof,
   publicSignals: SnarkPublicSignals
 ) => {
-  const stringify = (x) => x.toString();
+  const stringify = (x: { toString: () => string; }) => x.toString();
 
   return {
     a: [proof.pi_a[0].toString(), proof.pi_a[1].toString()],

@@ -1,4 +1,6 @@
+// @ts-ignore
 import * as snarkjs from 'snarkjs'
+// @ts-ignore
 import { tree } from 'semaphore-merkle-tree'
 
 type SnarkBigInt = snarkjs.bigInt

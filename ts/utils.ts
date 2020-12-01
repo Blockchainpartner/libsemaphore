@@ -1,5 +1,5 @@
 // Copied from semaphore/semaphorejs/src/util/index.js
-
+// @ts-ignore
 import * as snarkjs from "snarkjs";
 import * as assert from "assert";
 import bigInt = require("big-integer");
@@ -11,7 +11,7 @@ const unstringifyBigInts = (o: any): any => {
   } else if (Array.isArray(o)) {
     return o.map(unstringifyBigInts);
   } else if (typeof o == "object") {
-    const res = {};
+    const res: any = {};
     for (const k in o) {
       res[k] = unstringifyBigInts(o[k]);
     }
@@ -71,6 +71,7 @@ const convertWitness = (witnessJson: string | any[]): Buffer => {
   return Buffer.from(buff);
 };
 
+// @ts-ignore
 import buildGroth16 = require("websnark/src/bn128.js");
 
 const prove = async (
