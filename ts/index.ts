@@ -19,7 +19,7 @@ import {
     SnarkBigInt,
     WitnessData,
     BroadcastSignalParams,
-} from '../@types';
+} from '..';
 const MemStorage = storage.MemStorage
 const MerkleTree = tree.MerkleTree
 const MimcSpongeHasher = hashers.MimcSpongeHasher
