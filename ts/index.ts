@@ -18,7 +18,8 @@ import {
     SnarkProof,
     SnarkBigInt,
     WitnessData,
-} from './@types';
+    BroadcastSignalParams,
+} from '../@types';
 const MemStorage = storage.MemStorage
 const MerkleTree = tree.MerkleTree
 const MimcSpongeHasher = hashers.MimcSpongeHasher
@@ -398,7 +399,7 @@ const genBroadcastSignalParams = (
     witnessData: WitnessData,
     proof: SnarkProof,
     publicSignals: SnarkPublicSignals,
-) => {
+): BroadcastSignalParams => {
     const formatted = formatForVerifierContract(proof, publicSignals)
 
     return {

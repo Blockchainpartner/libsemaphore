@@ -44,6 +44,14 @@ interface EdDSASignature {
     S: SnarkBigInt,
 }
 
+interface BroadcastSignalParams {
+    signal: Uint8Array;
+    proof: any;
+    root: any;
+    nullifiersHash: any;
+    externalNullifier: any;
+  }
+
 export {
     Identity,
     EddsaKeyPair,
@@ -58,4 +66,5 @@ export {
     SnarkProof,
     SnarkBigInt,
     WitnessData,
+    BroadcastSignalParams,
 }
