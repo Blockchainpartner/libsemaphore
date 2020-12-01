@@ -50,7 +50,7 @@ interface BroadcastSignalParams {
     root: any;
     nullifiersHash: any;
     externalNullifier: any;
-  }
+}
 
 export {
     Identity,

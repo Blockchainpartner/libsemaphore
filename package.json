@@ -20,6 +20,7 @@
     "url": "https://github.com/Blockchainpartner/libsemaphore/issues"
   },
   "homepage": "https://github.com/Blockchainpartner/libsemaphore#readme",
+  "typings": "./index.d.ts",
   "devDependencies": {
     "@types/jest": "^24.9.1",
     "chai": "^4.2.0",
