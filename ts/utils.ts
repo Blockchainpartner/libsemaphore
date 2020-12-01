@@ -67,7 +67,7 @@ const buildGroth16 = require('websnark/src/bn128.js')
 const prove = async (witness, provingKey) => {
     const groth16 = await buildGroth16()
     const p = await groth16.groth16GenProof(witness, provingKey);
-    //groth16.terminate()
+    await groth16.terminate()
     return snarkjs.unstringifyBigInts(p)
 }
 
