@@ -1,6 +1,6 @@
 {
   "name": "libsemaphore",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "A Semaphore and MicroMix client library",
   "main": "build/index.js",
   "scripts": {
@@ -12,14 +12,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/weijiekoh/libsemaphore.git"
+    "url": "git+https://github.com/Blockchainpartner/libsemaphore.git"
   },
   "author": "Koh Wei Jie",
   "license": "GPL-3.0-or-later",
   "bugs": {
-    "url": "https://github.com/weijiekoh/libsemaphore/issues"
+    "url": "https://github.com/Blockchainpartner/libsemaphore/issues"
   },
-  "homepage": "https://github.com/weijiekoh/libsemaphore#readme",
+  "homepage": "https://github.com/Blockchainpartner/libsemaphore#readme",
   "devDependencies": {
     "@types/jest": "^24.9.1",
     "chai": "^4.2.0",

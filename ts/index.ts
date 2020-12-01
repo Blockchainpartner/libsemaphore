@@ -13,12 +13,11 @@ import {
     SnarkCircuit,
     SnarkProvingKey,
     SnarkVerifyingKey ,
-    SnarkWitness,
     SnarkPublicSignals,
     SnarkProof,
     SnarkBigInt,
     WitnessData,
-} from './types';
+} from './@types';
 const MemStorage = storage.MemStorage
 const MerkleTree = tree.MerkleTree
 const MimcSpongeHasher = hashers.MimcSpongeHasher
@@ -418,18 +417,18 @@ const genBroadcastSignalParams = (
 }
 
 export {
-    Identity,
-    EddsaKeyPair,
-    EddsaPrivateKey,
-    EddsaPublicKey,
-    SnarkCircuit,
-    SnarkProvingKey,
-    SnarkVerifyingKey ,
-    SnarkWitness,
-    SnarkPublicSignals,
-    SnarkProof,
-    SnarkBigInt,
-    WitnessData,
+    // Identity,
+    // EddsaKeyPair,
+    // EddsaPrivateKey,
+    // EddsaPublicKey,
+    // SnarkCircuit,
+    // SnarkProvingKey,
+    // SnarkVerifyingKey ,
+    // SnarkWitness,
+    // SnarkPublicSignals,
+    // SnarkProof,
+    // SnarkBigInt,
+    // WitnessData,
     parseVerifyingKeyJson,
     setupTree,
     genPubKey,

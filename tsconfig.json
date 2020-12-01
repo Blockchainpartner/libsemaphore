@@ -2,22 +2,27 @@
     "compilerOptions": {
         "experimentalDecorators": true,
         "alwaysStrict": true,
+        "strictNullChecks": true,
         "allowJs": true,
         "noImplicitAny": false,
+        "resolveJsonModule": true,
         "forceConsistentCasingInFileNames": true,
-        "noUnusedLocals": false,
+        "noUnusedLocals": true,
         "noUnusedParameters": true,
         "noImplicitReturns": true,
         "noFallthroughCasesInSwitch": true,
+        "allowUnreachableCode": false,
         "sourceMap": true,
         "strict": true,
         "outDir": "./build",
-        "lib": [ "es2015" ]
+        "lib": [ "es6" ],
+        "baseUrl": "."
     },
     "exclude": [
         "node_modules/**"
     ],
     "include": [
-        "./ts"
+        "./ts/*.ts",
+        "./ts/*.d.ts"
     ]
 }
