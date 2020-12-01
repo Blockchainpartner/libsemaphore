@@ -432,6 +432,7 @@ export {
     SnarkProof,
     SnarkBigInt,
     WitnessData,
+    BroadcastSignalParams,
     parseVerifyingKeyJson,
     setupTree,
     genPubKey,
